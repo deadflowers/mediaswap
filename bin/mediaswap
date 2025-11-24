@@ -1,29 +1,36 @@
 #!/usr/bin/env bash
 # =============================================================================
 # mediaswap: Unified media tool (Image, Audio, Video, Iconset, ASCII)
-# Version: 1.0.0
+# Version: 1.1.0
+# Ray Kooyenga
+# 11-24-2025
 # =============================================================================
+# Dependencies: ffmpeg, imagemagick, zenity, jp2a (opt), chafa (opt), exiftool (opt)
 
 set -u
 
-# --- Configuration ---
-DEFAULT_IMG_QUALITY=75
-AUDIO_BITRATE_OPUS="256k"  # High quality default for Opus
-AUDIO_BITRATE_STD="320k"   # High quality for MP3/AAC
-VIDEO_CODEC_DEFAULT="libvpx-vp9" # VP9 by default
+# --- Defaults ---
+VERSION="1.1.0"
+IMG_QUALITY=75
+AUDIO_BITRATE_OPUS="256k"
+AUDIO_BITRATE_STD="320k"
 VIDEO_CRF_DEFAULT=32
-VIDEO_PRESET_SPEED=2       # libaom cpu-used
-USE_GPU="yes"              # Enabled by default per request
-
-# --- Dependency Check ---
-for cmd in zenity convert file ffmpeg; do
-    command -v "$cmd" >/dev/null 2>&1 || { echo "Missing: $cmd"; exit 1; }
-done
+VIDEO_PRESET_SPEED=2
+USE_GPU="no"
+OVERWRITE="no"
+STRIP_META="no"
 
 # --- Helpers ---
-log() { printf "[%s] %s\n" "$(date +%H:%M:%S)" "$*" >&2; }
 
-# Safe output filename (Append _1, _2 to avoid overwrite)
+log() { printf "[%s] %s\n" "$(date +%H:%M:%S)" "$*" >&2; }
+err() { printf "[ERR] %s\n" "$*" >&2; exit 1; }
+
+# Check dependencies
+for cmd in zenity convert file ffmpeg; do
+    command -v "$cmd" >/dev/null 2>&1 || err "Missing dependency: $cmd"
+done
+
+# Safe output filename generator (avoids overwrite)
 next_filename() {
     local file="$1"
     if [[ ! -e "$file" ]]; then echo "$file"; return; fi
@@ -36,10 +43,9 @@ next_filename() {
     echo "${dir}/${filename}_${i}.${ext}"
 }
 
-# Progress Bar Wrapper (Zenity if GUI, Text if CLI)
+# Progress GUI Wrapper
 run_progress() {
     local title="$1"; shift
-    # If running from Nautilus (no TTY), assume GUI mode
     if [ ! -t 0 ]; then
         ("$@" 2>&1) | zenity --progress --pulsate --title="MediaSwap" --text="$title" --auto-close --no-cancel
     else
@@ -54,21 +60,52 @@ mode_image() {
     shift
     local files=("$@")
 
-    # GUI Menu if no action provided
+    # GUI Menu
     if [[ -z "$action" || -f "$action" ]]; then
         [[ -f "$action" ]] && files=("$action" "${files[@]}")
-        action=$(zenity --list --title="Image Tools" --height=450 --width=400 \
+        # Detect if multiple files are selected for "Create Animation" option
+        local anim_opt=""
+        if [ "${#files[@]}" -gt 1 ]; then anim_opt="TRUE \"animwebp\" \"Create Animated WebP (from selection)\""; fi
+        
+        action=$(zenity --list --title="Image Tools" --height=500 --width=450 \
             --column="Action" --column="Description" \
             "webp" "Convert to WebP" \
+            "avif" "Convert to AVIF" \
             "png" "Convert to PNG" \
             "jpg" "Convert to JPG" \
+            "animwebp" "Create Animated WebP (GIF style)" \
             "bevel" "Add transparent bevel" \
             "rappleshot" "Add shadow (Rappleshot)" \
             "bgremove" "Remove background (Select color)" \
             "iconset" "Generate Iconset folder" \
             "ascii" "Convert to ASCII (chafa)" \
             "strip" "Scrub Metadata (Same format)") || exit 0
+        GUI_MODE="true"
     fi
+
+    # Special Case: Animated WebP from multiple images (Combines inputs)
+    if [[ "$action" == "animwebp" ]]; then
+        local out_name
+        if [ "${#files[@]}" -gt 0 ]; then
+             local first_dir; first_dir=$(dirname "${files[0]}")
+             out_name="${first_dir}/animation.webp"
+        else
+             out_name="animation.webp"
+        fi
+        out_name=$(next_filename "$out_name")
+        
+        # Delay 20 = 20/100 seconds (5 fps) - tweak as needed or ask user
+        run_progress "Creating Animation..." convert -delay 20 -loop 0 "${files[@]}" "$out_name"
+        return 0
+    fi
+
+    # Params for GUI or defaults
+    local q_val="$IMG_QUALITY"
+    case "$action" in
+        webp|jpg|jpeg|avif)
+            [ "${GUI_MODE:-false}" = "true" ] && q_val=$(zenity --scale --title="Quality" --value=75 --min-value=1 --max-value=100)
+            ;;
+    esac
 
     for f in "${files[@]}"; do
         [ ! -f "$f" ] && continue
@@ -76,22 +113,25 @@ mode_image() {
         dir=$(dirname "$f")
         base=$(basename "${f%.*}")
         ext="${f##*.}"
-
+        
         case "$action" in
             webp)
                 out=$(next_filename "${dir}/${base}.webp")
-                run_progress "To WebP: $base" convert "$f" -quality "$DEFAULT_IMG_QUALITY" "$out"
+                run_progress "To WebP: $base" convert "$f" -quality "$q_val" "$out"
+                ;;
+            avif)
+                out=$(next_filename "${dir}/${base}.avif")
+                run_progress "To AVIF: $base" convert "$f" -quality "$q_val" "$out"
                 ;;
             jpg|jpeg)
                 out=$(next_filename "${dir}/${base}.jpg")
-                run_progress "To JPG: $base" convert "$f" -quality "$DEFAULT_IMG_QUALITY" -background white -flatten "$out"
+                run_progress "To JPG: $base" convert "$f" -quality "$q_val" -background white -flatten "$out"
                 ;;
             png)
                 out=$(next_filename "${dir}/${base}.png")
                 run_progress "To PNG: $base" convert "$f" "$out"
                 ;;
             bevel)
-                # Transparent border + Raise (No grey center artifact)
                 out=$(next_filename "${dir}/${base}_bevel.png")
                 run_progress "Beveling: $base" convert "$f" -alpha set -bordercolor none -border 16 -raise 16 "$out"
                 ;;
@@ -100,9 +140,8 @@ mode_image() {
                 run_progress "Shadowing: $base" convert "$f" \( +clone -background black -shadow 80x20+0+15 \) +swap -background transparent -layers merge +repage "$out"
                 ;;
             bgremove)
-                # Interactive aggressiveness if GUI
                 local fuzz="15"
-                if [ ! -t 0 ]; then fuzz=$(zenity --scale --title="Aggressiveness" --value=15 --max-value=50); fi
+                [ "${GUI_MODE:-false}" = "true" ] && fuzz=$(zenity --scale --title="Aggressiveness" --value=15 --max-value=50)
                 out=$(next_filename "${dir}/${base}_nobg.png")
                 run_progress "Removing BG: $base" convert "$f" -alpha on -fuzz "${fuzz}%" -transparent white "$out"
                 ;;
@@ -146,27 +185,30 @@ mode_audio() {
 
     if [[ -z "$action" || -f "$action" ]]; then
         if [[ -f "$action" ]]; then files=("$action" "${files[@]}"); fi
-        action=$(zenity --list --title="Audio Tools" --height=300 --width=400 \
+        action=$(zenity --list --title="Audio Tools" --height=350 --width=400 \
             --column="Action" --column="Desc" \
-            "opus" "To Opus (High Quality)" \
+            "opus" "To Opus (Default High Quality)" \
             "m4a" "To AAC/M4A (320k)" \
             "mp3" "To MP3 (320k)" \
             "flac" "To FLAC (Lossless)" \
+            "wav" "To WAV (PCM 16-bit)" \
+            "ogg" "To OGG (Vorbis)" \
             "rip" "Rip Audio (Copy if possible)") || exit 0
+        GUI_MODE="true"
     fi
 
     for f in "${files[@]}"; do
         [ ! -f "$f" ] && continue
-        local dir base out
+        local dir base ext out
         dir=$(dirname "$f")
         base=$(basename "${f%.*}")
-
+        
         case "$action" in
             opus)
                 out=$(next_filename "${dir}/${base}.opus")
                 run_progress "Encoding Opus..." ffmpeg -y -i "$f" -c:a libopus -b:a "$AUDIO_BITRATE_OPUS" -vn "$out"
                 ;;
-            m4a)
+            m4a|aac)
                 out=$(next_filename "${dir}/${base}.m4a")
                 run_progress "Encoding AAC..." ffmpeg -y -i "$f" -c:a aac -b:a "$AUDIO_BITRATE_STD" -vn "$out"
                 ;;
@@ -178,12 +220,21 @@ mode_audio() {
                 out=$(next_filename "${dir}/${base}.flac")
                 run_progress "Encoding FLAC..." ffmpeg -y -i "$f" -c:a flac -vn "$out"
                 ;;
+            wav|wave|pcm)
+                out=$(next_filename "${dir}/${base}.wav")
+                run_progress "Encoding WAV..." ffmpeg -y -i "$f" -c:a pcm_s16le -vn "$out"
+                ;;
+            ogg)
+                out=$(next_filename "${dir}/${base}.ogg")
+                run_progress "Encoding OGG..." ffmpeg -y -i "$f" -c:a libvorbis -q:a 6 -vn "$out"
+                ;;
             rip)
-                # Try copy first; fallback to transcode
+                # Try copy first
                 out=$(next_filename "${dir}/${base}.mka")
                 if ! ffmpeg -y -i "$f" -c:a copy -vn "$out" >/dev/null 2>&1; then
+                    # Fallback if copy fails
                     out=$(next_filename "${dir}/${base}.opus")
-                    run_progress "Rip (transcoding)..." ffmpeg -y -i "$f" -c:a libopus -b:a 192k -vn "$out"
+                    run_progress "Rip failed, transcoding..." ffmpeg -y -i "$f" -c:a libopus -b:a 192k -vn "$out"
                 fi
                 ;;
         esac
@@ -198,22 +249,30 @@ mode_video() {
 
     if [[ -z "$action" || -f "$action" ]]; then
         if [[ -f "$action" ]]; then files=("$action" "${files[@]}"); fi
-        action=$(zenity --list --title="Video Tools" --height=350 --width=400 \
+        action=$(zenity --list --title="Video Tools" --height=420 --width=400 \
             --column="Action" --column="Desc" \
-            "vp9" "To WebM (VP9)" \
-            "av1" "To WebM (AV1)" \
-            "h264" "To MP4 (H.264)" \
-            "prores" "To ProRes (Edit friendly)" \
+            "vp8" "To WebM (VP8 - Compatible)" \
+            "vp9" "To WebM (VP9 - Efficient)" \
+            "av1" "To WebM (AV1 - Best/Slow)" \
+            "h264" "To MP4 (H.264 - Common)" \
+            "h265" "To MP4 (H.265 - Modern)" \
+            "mov" "To MOV (ProRes/H264)" \
+            "vid2webp" "To Animated WebP (High Quality)" \
+            "lossless" "To Lossless (VP9)" \
             "rip" "Rip Audio Only") || exit 0
+        GUI_MODE="true"
     fi
 
-    # GPU Check
-    local vcodec="$VIDEO_CODEC_DEFAULT"
-    if [ "$USE_GPU" = "yes" ]; then
-        case "$action" in
-            h264) vcodec="h264_nvenc" ;;
-            h265) vcodec="hevc_nvenc" ;;
-        esac
+    # GPU Flag check
+    local h264_codec="libx264"
+    local h265_codec="libx265"
+    
+    if [[ "$USE_GPU" == "yes" ]]; then
+        # Rudimentary Nvidia check
+        if command -v nvidia-smi >/dev/null; then
+             h264_codec="h264_nvenc"
+             h265_codec="hevc_nvenc"
+        fi
     fi
 
     for f in "${files[@]}"; do
@@ -223,6 +282,11 @@ mode_video() {
         base=$(basename "${f%.*}")
 
         case "$action" in
+            vp8|webm)
+                out=$(next_filename "${dir}/${base}.webm")
+                # Defaulting to VP8 for 'webm' generic request as user requested
+                run_progress "VP8 Encoding..." ffmpeg -y -i "$f" -c:v libvpx -crf 10 -b:v 1M -c:a libvorbis "$out"
+                ;;
             vp9)
                 out=$(next_filename "${dir}/${base}.webm")
                 run_progress "VP9 Encoding..." ffmpeg -y -i "$f" -c:v libvpx-vp9 -crf "$VIDEO_CRF_DEFAULT" -b:v 0 -c:a libopus "$out"
@@ -233,19 +297,28 @@ mode_video() {
                 ;;
             h264)
                 out=$(next_filename "${dir}/${base}.mp4")
-                # Uses GPU if enabled above, else CPU default libx264
-                if [ "$vcodec" = "h264_nvenc" ]; then
-                     run_progress "H264 (GPU)..." ffmpeg -y -i "$f" -c:v h264_nvenc -c:a copy "$out"
-                else
-                     run_progress "H264 (CPU)..." ffmpeg -y -i "$f" -c:v libx264 -crf 23 -c:a copy "$out"
-                fi
+                run_progress "H264 Encoding..." ffmpeg -y -i "$f" -c:v "$h264_codec" -crf 23 -c:a copy "$out"
                 ;;
-            prores)
+            h265)
+                out=$(next_filename "${dir}/${base}.mp4")
+                run_progress "H265 Encoding..." ffmpeg -y -i "$f" -c:v "$h265_codec" -crf 28 -c:a copy "$out"
+                ;;
+            mov)
                 out=$(next_filename "${dir}/${base}.mov")
-                run_progress "ProRes..." ffmpeg -y -i "$f" -c:v prores_ks -profile:v 3 -c:a pcm_s16le "$out"
+                # Defaulting MOV to a high quality h264 for compatibility
+                run_progress "MOV Encoding..." ffmpeg -y -i "$f" -c:v "$h264_codec" -q:v 0 -c:a copy "$out"
+                ;;
+            vid2webp)
+                # Video to Animated WebP using flags from the HTML reference
+                out=$(next_filename "${dir}/${base}.webp")
+                # Note: -vsync 0 deprecated for -fps_mode passthrough
+                run_progress "Animated WebP..." ffmpeg -y -i "$f" -vcodec libwebp -filter:v fps=20 -lossless 0 -compression_level 4 -q:v 75 -loop 0 -preset default -an -fps_mode passthrough -s 800:-1 "$out"
+                ;;
+            lossless)
+                out=$(next_filename "${dir}/${base}_lossless.webm")
+                run_progress "Lossless..." ffmpeg -y -i "$f" -c:v libvpx-vp9 -lossless 1 -c:a copy "$out"
                 ;;
             rip)
-                # Audio rip logic reuse
                 out=$(next_filename "${dir}/${base}.mka")
                 ffmpeg -y -i "$f" -c:a copy -vn "$out"
                 ;;
@@ -253,17 +326,80 @@ mode_video() {
     done
 }
 
-# --- Dispatcher ---
+# --- Help / Dispatcher ---
+
+show_help() {
+    cat <<EOF
+mediaswap v$VERSION
+
+Usage: m [i|a|v] [action] [files...]
+
+IMAGES (i):
+  m i webp         Convert to WebP
+  m i avif         Convert to AVIF
+  m i png          Convert to PNG
+  m i jpg|jpeg     Convert to JPG
+  m i animwebp     Create animated WebP from multiple input images
+  m i bevel        Add transparent 3D bevel
+  m i rappleshot   Add screenshot shadow
+  m i bgremove     Remove background
+  m i iconset      Generate standard icon sizes folder
+  m i ascii        Convert to ASCII text file
+
+AUDIO (a):
+  m a opus         Convert to Opus
+  m a m4a|aac      Convert to AAC/M4A
+  m a mp3          Convert to MP3
+  m a flac         Convert to FLAC
+  m a wav|pcm      Convert to WAV
+  m a ogg          Convert to OGG Vorbis
+  m a rip          Extract audio stream from video (copy)
+
+VIDEO (v):
+  m v vp8|webm     Convert to WebM (VP8)
+  m v vp9          Convert to WebM (VP9)
+  m v av1          Convert to WebM (AV1)
+  m v h264         Convert to MP4 (H.264)
+  m v h265         Convert to MP4 (H.265)
+  m v mov          Convert to MOV
+  m v vid2webp     Convert video to Animated WebP (GIF style)
+  m v lossless     Convert to lossless WebM
+
+Global Flags:
+  --gpu            Enable GPU encoding (NVENC) where supported
+  --force          Allow overwriting files (Not implemented yet, currently appends _1)
+EOF
+}
+
+# Handle global flags manually
+ARGS=()
+for arg in "$@"; do
+    case "$arg" in
+        --gpu) USE_GPU="yes" ;;
+        --help|-h) show_help; exit 0 ;;
+        *) ARGS+=("$arg") ;;
+    esac
+done
+set -- "${ARGS[@]}"
+
 MODE="${1:-}"
 shift || true
 
 case "$MODE" in
-    i|img|image) mode_image "$@" ;;
-    a|aud|audio) mode_audio "$@" ;;
-    v|vid|video) mode_video "$@" ;;
+    i|img|image)
+        mode_image "$@"
+        ;;
+    a|aud|audio)
+        mode_audio "$@"
+        ;;
+    v|vid|video)
+        mode_video "$@"
+        ;;
     *)
-        # Fallback detection or help
-        echo "Usage: mediaswap [i|a|v] [action] [files...]"
-        exit 1
+        if [ -n "$MODE" ] && [ -f "$MODE" ]; then
+            zenity --error --text="Please specify mode: image (i), audio (a), or video (v)."
+        else
+            show_help
+        fi
         ;;
 esac
