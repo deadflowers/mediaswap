@@ -1,1 +1,3 @@
-
+#!/bin/bash
+# Passes selected files to mediaswap in 'audio' mode
+~/.local/bin/mediaswap audio "$@"

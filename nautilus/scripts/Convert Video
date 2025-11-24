@@ -1,0 +1,3 @@
+#!/bin/bash
+# Passes selected files to mediaswap in 'video' mode
+~/.local/bin/mediaswap video "$@"

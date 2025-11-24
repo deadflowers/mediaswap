@@ -1,0 +1,3 @@
+#!/bin/bash
+# Passes selected files to mediaswap in 'image' mode
+~/.local/bin/mediaswap image "$@"
