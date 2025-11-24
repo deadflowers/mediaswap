@@ -166,6 +166,7 @@ Convert audio with smarter transcoding and ripping.
   * **mp3**: Convert to MP3 (Default: 320k).
   * **flac**: Lossless conversion.
   * **wav**: Convert to PCM WAV (16-bit).
+  * **norm**: Normalize a voice recording for transcription (optimize for Whisper).
   * **rip**: Extract audio stream from video **without re-encoding** (copy stream). If the container format doesn't match, it prompts to transcode.
 
 #### 🎥 Video (`m v`)
@@ -190,7 +191,7 @@ Focuses on modern web standards and editing formats. Convert and transcode with 
 | Type | Command | Available Actions & Formats | Notes |
 | :--- | :--- | :--- | :--- |
 | **Image** | `m i` | `webp`, `avif`, `png`, `jpg`, `animwebp`, `iconset`, `bevel`, `rappleshot`, `bgremove`, `ascii`, `strip` | `animwebp` creates an animated WebP from multiple selected images. `strip` removes metadata. |
-| **Audio** | `m a` | `opus`, `m4a`, `mp3`, `flac`, `wav`, `ogg`, `rip` | `rip` extracts the audio stream from a video file without re-encoding. `wav` defaults to PCM 16-bit. |
+| **Audio** | `m a` | `opus`, `m4a`, `mp3`, `flac`, `wav`, `ogg`, `norm`, `rip` | `rip` extracts the audio stream from a video file without re-encoding. `norm` optimize a recording for transcription |
 | **Video** | `m v` | `vp9`, `vp8`, `av1`, `h264`, `h265`, `webm`, `mov`, `lossless`, `vid2webp`, `rip` | `vid2webp` converts video input to an animated WebP. `rip` is a shortcut to extract audio. Supports `--gpu`. |
  
 -----
