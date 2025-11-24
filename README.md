@@ -229,6 +229,7 @@ Available video formats and actions include:
   <iframe width="560" height="315" src="https://www.youtube.com/embed/xyz" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
   <figcaption>Video demo on YouTube by @raykooyenga</figcaption>
 </figure>
+```
 
 ---
 
