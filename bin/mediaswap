@@ -193,6 +193,7 @@ mode_audio() {
             "flac" "To FLAC (Lossless)" \
             "wav" "To WAV (PCM 16-bit)" \
             "ogg" "To OGG (Vorbis)" \
+            "norm" "Normalize voice recording for transcription" \
             "rip" "Rip Audio (Copy if possible)") || exit 0
         GUI_MODE="true"
     fi
@@ -227,6 +228,10 @@ mode_audio() {
             ogg)
                 out=$(next_filename "${dir}/${base}.ogg")
                 run_progress "Encoding OGG..." ffmpeg -y -i "$f" -c:a libvorbis -q:a 6 -vn "$out"
+                ;;
+            voice|norm|normal)
+                out=$(next_filename "${dir}/${base}_normal.wav")
+                run_progress "Optimizing for transcription..." ffmpeg -y -i "$f" -af "highpass=f=100, dynaudnorm=f=150:g=31:p=0.9, volume=1.5" -ar 16000 -ac 1 -vn "$out"
                 ;;
             rip)
                 # Try copy first
