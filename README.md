@@ -2,16 +2,16 @@
 
 **Quickly convert audio, image, and video files via terminal or right-click menu.**
 
-Mediaswap is a robust wrapper designed to bring the power of **FFmpeg** and **ImageMagick** to your Ubuntu/GNOME environment. It operates as a single master CLI tool with optional **Zenity** GUI dialogs.
+Mediaswap is a robust wrapper designed to bring the power of **FFmpeg** and **ImageMagick** to your Ubuntu/GNOME desktop context menus. It operates as a single master CLI tool with **Zenity** GUI dialogs.
 
-There are no new heavy programs to open or learn. **Mediaswap** integrates seamlessly into your existing workflow.
+There are no new heavy programs to open or learn. **Mediaswap** integrates naturally into your environment.
 
 ### What it does
 
   * **Images:** Convert `.heic` and `.raw` to `.png`, `.webp`, `.avif`, or `.jpg`. Create **iconsets**, apply **bevels**, add **drop-shadows**, **remove backgrounds**, or generate **ASCII** art.
   * **Video:** Convert proprietary formats to **VP9**, **AV1**, or **H.264**. Includes smart defaults for modern web standards.
-  * **Audio:** **Rip audio** tracks from video files (bit-perfect copy) or transcode to **Opus**, **FLAC**, **AAC**, or **WAV** without upsampling.
-  * **Workflow:** Batch process multiple files instantly. If you forget a flag, the GUI pops up to help you.
+  * **Audio:** **Rip audio** tracks from video files (bit-perfect copy) or transcode to **Opus**, **FLAC**, **AAC**, or **WAV**.
+  * **Workflow:** Right click, batch process multiple files instantly, or use in console.
 
 -----
 
@@ -73,9 +73,26 @@ sudo apt install ffmpeg imagemagick zenity file chafa jp2a exiftool zip
 
 ### Usage
 
-#### 1\. The Command Line (CLI)
+#### 1\. Context Menu
 
-The core command is `mediaswap`. The syntax follows a simple pattern: `mediaswap [category] [format] [file]`.
+Right-click any file in Nautilus:
+
+1.  Go to **Scripts**.
+2.  Select **Convert Image**, **Convert Audio**, or **Convert Video**.
+3.  A dialog appears with interactive choices.
+
+#### 2\. The Hybrid Workflow (GUI Fallback)
+
+Launch Mediaswap interactive GUI from console.
+
+```bash
+m v video.mp4
+# Opens a dialog asking: "Convert to: VP9, AV1, H264...?"
+```
+
+#### 3\. The Command Line (CLI)
+
+The core command is `mediaswap`. The syntax follows a simple pattern: `mediaswap [category] [function] [input file]`.
 
 **Examples:**
 
@@ -90,7 +107,7 @@ mediaswap image jpg photo.png
 mediaswap audio flac recording.wav
 ```
 
-#### 2\. The Short CLI (`m`)
+#### 4\. The Short CLI (`m`)
 Faster and easier? We include a shorthand alias `m` mapped to the main script. The shortened CLI: 
 
 ```bash
@@ -103,23 +120,22 @@ m i jpg [inputfile]
 # Rip audio from video (no transcoding)
 m a rip [inputfile]
 ```
+The output file is the same or a variation of the input filename and the new extension. so you dont have to type things twice or have a confusing process for handling batches of files. In fact batches wold be this easy:
 
-#### 3\. The Hybrid Workflow (GUI Fallback)
-
-If you forget the specific action argument, just type the category. Mediaswap will launch a **Zenity GUI** to let you select the format interactively.
-
-```bash
-m v video.mp4
-# Opens a dialog asking: "Convert to: VP9, AV1, H264...?"
 ```
+# Bulk convert a directory of wav files to opus
+m a opus *.wav
 
-#### 4\. Context Menu
+# Rip audio streams in bulk
+m a rip my-videos/*
 
-Right-click any file in Nautilus:
+# Shrink your website graphics
+m i webp *png
 
-1.  Go to **Scripts**.
-2.  Select **Convert Image**, **Convert Audio**, or **Convert Video**.
-3.  A dialog appears with options.
+# make a animated webp gif-style
+m i animwebp travel-photos/*png
+
+```
 
 -----
 
