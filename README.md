@@ -25,7 +25,7 @@ Mediaswap requires the following dependencies:
 * **FFmpeg**
 * **ImageMagick** (`imagemagick` package)
 * **Zenity** (for GUI dialogs)
-* **JP2A** or * **Chafa** (for image-to-ASCII conversion)
+* **JP2A** or **Chafa** (for image-to-ASCII conversion)
 
 Ensure these packages are installed for Mediaswap to function correctly.
 
