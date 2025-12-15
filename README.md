@@ -4,18 +4,24 @@
 ### Desktop non-app
 Mediaswap is a robust wrapper designed to bring the power of **FFmpeg** and **ImageMagick** to your Ubuntu/GNOME desktop. The GUI is familiar because it's yours: the shell and file manager you are already using. If you can copy, cut, paste with your mouse, you already know how to use MediaSwap to bulk transform your media files.  
 
-Essentially a **Zenity** powered non-app, there's new big programs to load or learn. MediaSwap attaches to your shell, integrating seamlessly into your environment, and organically into your workflow. So natural and intuitive your great grandfather could figure out remastering his Glenn Miller Orchestra records in 3 minutes. The shell extension is composed of wrapper scripts in your GTK system. You interact via normal menus plus some new dialogues and slider elements that extend functionality with a native feel. Then these components pass commands back to a master CLI app. That's right, MediaSwap also has a terminal interface. And yes you can absolutely use on your remote server with no desktop. And even the Termux console of your Android phone. 
-
-shut up ray! 🤬 
-
-no joke i do it all the time 😀 
-
 ---
 
   * **Images:** Convert `.heic` and `.raw` to `.png`, `.webp`, `.avif`, or `.jpg`. Create **icons** for your web app or site, apply **bevels**, add **drop-shadows**, **remove backgrounds**, or generate **ASCII** art.
   * **Video:** Convert proprietary formats to **VP9**, **AV1**, or **VP8**. Includes smart defaults for modern web standards.
   * **Audio:** **Rip audio** tracks from video files (bit-perfect copy) or transcode to **Opus**, **FLAC**, **AAC**, or **WAV**.
   * **Workflow:** Right click, batch process multiple files instantly, or use the CLI terminal version. Convert a directory of h264 MP4 video files to royalty free AV1 video in WebM containers? Easy as `m v av1 *mp4`.
+
+---
+
+Essentially a **Zenity** powered non-app, there's no big programs to load or learn. MediaSwap attaches to your shell, integrating seamlessly into your environment, and organically into your workflow. 
+
+So natural and intuitive your great grandfather could figure out remastering his Glenn Miller Orchestra records in 3 minutes. The shell extension is composed of wrapper scripts in your GTK system you interact with via normal menus plus some new dialogues and slider elements that extend functionality with a native feel.
+
+These components pass commands back to a master CLI app. That's right, MediaSwap has a smart terminal mode. And yes you can absolutely use on your remote server with no desktop. Or even the console on your Android phone. 
+
+shut up ray! 🤬 
+
+no joke i do it all the time 😂 
     
 -----
 
