@@ -425,13 +425,13 @@ ${C_BOLD}${C_GREEN}AUDIO (a):${C_RESET}
   ${C_CYAN}m a whisper_quiet${C_RESET}  Whisper Boost Quiet Audio (Dynamic Norm)
 
 ${C_BOLD}${C_GREEN}VIDEO (v):${C_RESET}
-  ${C_CYAN}m v webm_av1|av1${C_RESET}   Convert to WebM (AV1)
-  ${C_CYAN}m v webm_vp9|webm${C_RESET}  Convert to WebM (VP9)
-  ${C_CYAN}m v webm_vp8|vp8${C_RESET}   Convert to WebM (VP8)
+  ${C_CYAN}m v av1|av1${C_RESET}        Convert to WebM (AV1)
+  ${C_CYAN}m v vp9|webm${C_RESET}       Convert to WebM (VP9)
+  ${C_CYAN}m v vp8|vp8${C_RESET}        Convert to WebM (VP8)
   ${C_CYAN}m v mp4_av1${C_RESET}        Convert to MP4 (AV1)
-  ${C_CYAN}m v mp4_vvc|vvc${C_RESET}    Convert to MP4 (H.266/VVC)
-  ${C_CYAN}m v mp4_h265|hevc${C_RESET}  Convert to MP4 (H.265/HEVC)
-  ${C_CYAN}m v mp4_h264|mp4${C_RESET}   Convert to MP4 (H.264/AVC)
+  ${C_CYAN}m v h266|vvc${C_RESET}       Convert to MP4 (H.266/VVC)
+  ${C_CYAN}m v h265|hevc${C_RESET}      Convert to MP4 (H.265/HEVC)
+  ${C_CYAN}m v h264|avc${C_RESET}       Convert to MP4 (H.264/AVC)
   ${C_CYAN}m v mov${C_RESET}            Convert to (MOV/ProRes)
 
   ${C_CYAN}m v webp${C_RESET}           Convert video to Animated WebP (GIF style)
