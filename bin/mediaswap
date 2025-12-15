@@ -1,178 +1,195 @@
 #!/usr/bin/env bash
 # =============================================================================
-# mediaswap: Unified media tool (Image, Audio, Video, Iconset, ASCII)
-# Version: 1.1.0
-# Ray Kooyenga
-# 11-24-2025
+#  MEDIASWAP v1.3.0
+#  Ray Kooyenga
+#  12-14-2025
+#  Unified media conversion and processing tool for Images, Audio, Video
 # =============================================================================
-# Dependencies: ffmpeg, imagemagick, zenity, jp2a (opt), chafa (opt), exiftool (opt)
+#  Dependencies: ffmpeg (w/ libopus, libvpx, libaom, libx264/265), imagemagick,
+#                zenity, file, chafa (opt), exiftool (opt)
+# =============================================================================
 
 set -u
 
-# --- Defaults ---
-VERSION="1.1.0"
-IMG_QUALITY=75
+# --- Configuration & Defaults ---
+VERSION="1.3.0"
+SOFA_PATH="$HOME/.local/share/mediaswap/ClubFritz12.sofa"
+
+# Default Quality Settings
+IMG_QUALITY_DEFAULT=75
 AUDIO_BITRATE_OPUS="256k"
-AUDIO_BITRATE_STD="320k"
-VIDEO_CRF_DEFAULT=32
-VIDEO_PRESET_SPEED=2
-USE_GPU="no"
-OVERWRITE="no"
-STRIP_META="no"
+AUDIO_BITRATE_STD="256K"
+VIDEO_AUDIO_BITRATE_OPUS="128K"
+VIDEO_AUDIO_BITRATE="256k"
+VIDEO_CRF_DEFAULT=23
+VIDEO_PRESET_SPEED=3  # libaom cpu-used (0=slowest, 8=fastest)
+
+# FFmpeg Flags (Quiet Mode)
+FF_QUIET="-hide_banner -loglevel error -stats"
+
+# State
+USE_GPU="yes"
+GUI_MODE="false"
+
+# --- Styling ---
+if [ -t 1 ]; then
+    C_RESET=$'\e[0m'
+    C_BOLD=$'\e[1m'
+    C_DIM=$'\e[2m'
+    C_RED=$'\e[38;5;196m'
+    C_ORANGE=$'\e[38;5;208m'
+    C_YELLOW=$'\e[38;5;220m'
+    C_GREEN=$'\e[38;5;46m'
+    C_BLUE=$'\e[38;5;39m'
+    C_PURPLE=$'\e[38;5;135m'
+    C_CYAN=$'\e[38;5;51m'
+else
+    C_RESET='' C_BOLD='' C_DIM='' C_RED='' C_ORANGE='' C_YELLOW='' C_GREEN='' C_BLUE='' C_PURPLE='' C_CYAN=''
+fi
 
 # --- Helpers ---
 
-log() { printf "[%s] %s\n" "$(date +%H:%M:%S)" "$*" >&2; }
-err() { printf "[ERR] %s\n" "$*" >&2; exit 1; }
+err() { printf "${C_RED}[ERR]${C_RESET} %s\n" "$*" >&2; exit 1; }
 
-# Check dependencies
+# Dependency Check
 for cmd in zenity convert file ffmpeg; do
     command -v "$cmd" >/dev/null 2>&1 || err "Missing dependency: $cmd"
 done
 
-# Safe output filename generator (avoids overwrite)
-next_filename() {
-    local file="$1"
-    if [[ ! -e "$file" ]]; then echo "$file"; return; fi
-    local dir filename ext i=1
-    dir=$(dirname "$file")
-    filename=$(basename -- "$file")
-    ext="${filename##*.}"
-    filename="${filename%.*}"
-    while [[ -e "${dir}/${filename}_${i}.${ext}" ]]; do ((i++)); done
-    echo "${dir}/${filename}_${i}.${ext}"
+# Safe Output Filename (Collision Avoidance)
+generate_output_name() {
+    local input_file="$1"
+    local desired_ext="$2"
+    local tag="${3:-}" 
+
+    local dir base suffix out_base final_out
+    dir=$(dirname "$input_file")
+    base=$(basename -- "$input_file")
+    base="${base%.*}"
+    
+    suffix=""
+    [ -n "$tag" ] && suffix="_${tag}"
+
+    out_base="${dir}/${base}${suffix}"
+    final_out="${out_base}.${desired_ext}"
+
+    local i=1
+    while [[ -e "$final_out" ]]; do
+         final_out="${out_base}_${i}.${desired_ext}"
+         ((i++))
+    done
+    echo "$final_out"
 }
 
 # Progress GUI Wrapper
 run_progress() {
     local title="$1"; shift
-    if [ ! -t 0 ]; then
-        ("$@" 2>&1) | zenity --progress --pulsate --title="MediaSwap" --text="$title" --auto-close --no-cancel
+    if [ ! -t 0 ] || [ "$GUI_MODE" = "true" ]; then
+        ("$@" 2>&1) | zenity --progress --pulsate --title="MediaSwap" --text="$title" --auto-close --no-cancel width=400
     else
-        echo "-> $title"
+        printf "${C_GREEN}➜${C_RESET} %s\n" "$title"
         "$@"
+    fi
+}
+
+# GUI Slider/Input Helper
+get_val() {
+    local title="$1" text="$2" def="$3" min="$4" max="$5" cli_override="${6:-}"
+    if [ -n "$cli_override" ]; then echo "$cli_override"; return 0; fi
+
+    if [ "$GUI_MODE" = "true" ]; then
+        zenity --scale --title="$title" --text="$text" --value="$def" --min-value="$min" --max-value="$max" --step=1
+    else
+        echo "$def"
     fi
 }
 
 # --- 1. IMAGE MODULE ---
 mode_image() {
     local action="${1:-}"
+    local cli_param="${2:-}"
     shift
+    if [[ "$cli_param" =~ ^[0-9]+.* ]]; then shift; else cli_param=""; fi
     local files=("$@")
 
-    # GUI Menu
     if [[ -z "$action" || -f "$action" ]]; then
         [[ -f "$action" ]] && files=("$action" "${files[@]}")
-        # Detect if multiple files are selected for "Create Animation" option
-        local anim_opt=""
-        if [ "${#files[@]}" -gt 1 ]; then anim_opt="TRUE \"animwebp\" \"Create Animated WebP (from selection)\""; fi
-        
-        action=$(zenity --list --title="Image Tools" --height=500 --width=450 \
+        GUI_MODE="true"
+        action=$(zenity --list --title="Image Tools" --height=650 --width=550 \
             --column="Action" --column="Description" \
             "webp" "Convert to WebP" \
             "avif" "Convert to AVIF" \
             "png" "Convert to PNG" \
             "jpg" "Convert to JPG" \
-            "animwebp" "Create Animated WebP (GIF style)" \
-            "bevel" "Add transparent bevel" \
-            "rappleshot" "Add shadow (Rappleshot)" \
-            "bgremove" "Remove background (Select color)" \
-            "iconset" "Generate Iconset folder" \
-            "ascii" "Convert to ASCII (chafa)" \
-            "strip" "Scrub Metadata (Same format)") || exit 0
-        GUI_MODE="true"
+            "resize" "Resize (Percent or WxH)" \
+            "animate" "Create Animated WebP (from selection)" \
+            "edge" "Add transparent 3D edge (Bevel)" \
+            "shadow" "Add screenshot shadow (Rappleshot)" \
+            "smooth" "Gaussian Smooth/Blur" \
+            "bgremove" "Remove background" \
+            "iconset" "Generate favicon icons" \
+            "ascii" "Convert to ASCII text file" \
+            "strip" "Scrub Metadata") || exit 0
     fi
 
-    # Special Case: Animated WebP from multiple images (Combines inputs)
-    if [[ "$action" == "animwebp" ]]; then
-        local out_name
-        if [ "${#files[@]}" -gt 0 ]; then
-             local first_dir; first_dir=$(dirname "${files[0]}")
-             out_name="${first_dir}/animation.webp"
-        else
-             out_name="animation.webp"
-        fi
-        out_name=$(next_filename "$out_name")
-        
-        # Delay 20 = 20/100 seconds (5 fps) - tweak as needed or ask user
-        run_progress "Creating Animation..." convert -delay 20 -loop 0 "${files[@]}" "$out_name"
+    if [[ "$action" == "animate" ]]; then
+        local out_name="animation.webp"
+        [ "${#files[@]}" -gt 0 ] && out_name="$(dirname "${files[0]}")/animation.webp"
+        out_name=$(generate_output_name "$out_name" "webp" "anim")
+        run_progress "Creating Animation..." convert -delay 20 -loop 0 "${files[@]}" -define webp:method=6 "$out_name"
         return 0
     fi
 
-    # Params for GUI or defaults
-    local q_val="$IMG_QUALITY"
-    case "$action" in
-        webp|jpg|jpeg|avif)
-            [ "${GUI_MODE:-false}" = "true" ] && q_val=$(zenity --scale --title="Quality" --value=75 --min-value=1 --max-value=100)
-            ;;
-    esac
-
     for f in "${files[@]}"; do
         [ ! -f "$f" ] && continue
-        local dir base ext out
-        dir=$(dirname "$f")
-        base=$(basename "${f%.*}")
-        ext="${f##*.}"
-        
+        local ext="${f##*.}" out q_val fuzz_val size_spec sigma_val
+
         case "$action" in
             webp)
-                out=$(next_filename "${dir}/${base}.webp")
-                run_progress "To WebP: $base" convert "$f" -quality "$q_val" "$out"
-                ;;
+                q_val=$(get_val "WebP Quality" "Higher=Better (Def 75)" 75 1 100 "$cli_param") || continue
+                out=$(generate_output_name "$f" "webp")
+                run_progress "To WebP (Q$q_val)..." convert "$f" -quality "$q_val" -define webp:method=6 "$out" ;;
             avif)
-                out=$(next_filename "${dir}/${base}.avif")
-                run_progress "To AVIF: $base" convert "$f" -quality "$q_val" "$out"
-                ;;
+                q_val=$(get_val "AVIF Quality" "Higher=Better (Def 70)" 70 1 100 "$cli_param") || continue
+                out=$(generate_output_name "$f" "avif")
+                run_progress "To AVIF (Q$q_val)..." convert "$f" -quality "$q_val" -define heic:speed=2 "$out" ;;
             jpg|jpeg)
-                out=$(next_filename "${dir}/${base}.jpg")
-                run_progress "To JPG: $base" convert "$f" -quality "$q_val" -background white -flatten "$out"
-                ;;
+                q_val=$(get_val "JPG Quality" "Higher=Better (Def 85)" 85 1 100 "$cli_param") || continue
+                out=$(generate_output_name "$f" "jpg")
+                run_progress "To JPG (Q$q_val)..." convert "$f" -quality "$q_val" -background white -flatten "$out" ;;
             png)
-                out=$(next_filename "${dir}/${base}.png")
-                run_progress "To PNG: $base" convert "$f" "$out"
-                ;;
-            bevel)
-                out=$(next_filename "${dir}/${base}_bevel.png")
-                run_progress "Beveling: $base" convert "$f" -alpha set -bordercolor none -border 16 -raise 16 "$out"
-                ;;
-            rappleshot)
-                out=$(next_filename "${dir}/${base}_rapple.png")
-                run_progress "Shadowing: $base" convert "$f" \( +clone -background black -shadow 80x20+0+15 \) +swap -background transparent -layers merge +repage "$out"
-                ;;
+                out=$(generate_output_name "$f" "png")
+                run_progress "To PNG..." convert "$f" "$out" ;;
+            resize)
+                if [ -n "$cli_param" ]; then size_spec="$cli_param"; elif [ "$GUI_MODE" = "true" ]; then
+                    size_spec=$(zenity --entry --title="Resize Image" --text="Enter percentage (50%) OR geometry (800x600):" --entry-text="50%") || continue
+                else size_spec="50%"; fi
+                out=$(generate_output_name "$f" "$ext" "resize")
+                run_progress "Resizing ($size_spec)..." convert "$f" -resize "$size_spec" "$out" ;;
+            smooth)
+                sigma_val=$(get_val "Gaussian Blur" "Sigma (Def 3)" 3 1 20 "$cli_param") || continue
+                out=$(generate_output_name "$f" "$ext" "smooth")
+                run_progress "Smoothing..." convert "$f" -gaussian-blur "0x${sigma_val}" "$out" ;;
             bgremove)
-                local fuzz="15"
-                [ "${GUI_MODE:-false}" = "true" ] && fuzz=$(zenity --scale --title="Aggressiveness" --value=15 --max-value=50)
-                out=$(next_filename "${dir}/${base}_nobg.png")
-                run_progress "Removing BG: $base" convert "$f" -alpha on -fuzz "${fuzz}%" -transparent white "$out"
-                ;;
-            iconset)
-                local idir="${dir}/${base}_iconset"
+                fuzz_val=$(get_val "BG Remove" "Aggressiveness % (Def 15)" 15 1 50 "$cli_param") || continue
+                out=$(generate_output_name "$f" "png" "nobg")
+                run_progress "Removing BG..." convert "$f" -alpha on -fuzz "${fuzz_val}%" -transparent white "$out" ;;
+            edge|bevel)
+                out=$(generate_output_name "$f" "png" "edge")
+                run_progress "Edging..." convert "$f" -alpha set -bordercolor none -border 16 -raise 16 "$out" ;;
+            shadow|rappleshot)
+                out=$(generate_output_name "$f" "png" "shadow")
+                run_progress "Shadowing..." convert "$f" \( +clone -background black -shadow 80x20+0+15 \) +swap -background transparent -layers merge +repage "$out" ;;
+            icons)
+                local idir="$(dirname "$f")/$(basename "${f%.*}")_iconset"
                 mkdir -p "$idir"
-                run_progress "Generating Iconset: $base" bash -c "
-                    convert \"$f\" -resize 16x16 \"$idir/16.png\"
-                    convert \"$f\" -resize 32x32 \"$idir/32.png\"
-                    convert \"$f\" -resize 48x48 \"$idir/48.png\"
-                    convert \"$f\" -resize 128x128 \"$idir/128.png\"
-                    convert \"$f\" -resize 256x256 \"$idir/256.png\"
-                    convert \"$f\" -resize 512x512 \"$idir/512.png\"
-                    convert \"$idir/16.png\" \"$idir/32.png\" \"$idir/48.png\" \"$idir/favicon.ico\"
-                "
-                ;;
+                run_progress "Generating Iconset..." bash -c "convert \"$f\" -resize 16x16 \"$idir/16.png\"; convert \"$f\" -resize 32x32 \"$idir/32.png\"; convert \"$f\" -resize 48x48 \"$idir/48.png\"; convert \"$f\" -resize 128x128 \"$idir/128.png\"; convert \"$f\" -resize 256x256 \"$idir/256.png\"; convert \"$f\" -resize 512x512 \"$idir/512.png\"; convert \"$idir/16.png\" \"$idir/32.png\" \"$idir/48.png\" \"$idir/favicon.ico\"" ;;
             ascii)
-                if command -v chafa >/dev/null; then
-                   chafa "$f" > "${dir}/${base}.txt"
-                elif command -v jp2a >/dev/null; then
-                   jp2a "$f" > "${dir}/${base}.txt"
-                fi
-                ;;
+                out=$(generate_output_name "$f" "txt" "ascii")
+                if command -v chafa >/dev/null; then chafa "$f" > "$out"; else jp2a "$f" > "$out"; fi ;;
             strip)
-                out=$(next_filename "${dir}/${base}_clean.${ext}")
-                if command -v exiftool >/dev/null; then
-                    cp "$f" "$out" && exiftool -overwrite_original -all= "$out"
-                else
-                    convert "$f" -strip "$out"
-                fi
-                ;;
+                out=$(generate_output_name "$f" "$ext" "clean")
+                if command -v exiftool >/dev/null; then cp "$f" "$out" && exiftool -overwrite_original -all= "$out"; else convert "$f" -strip "$out"; fi ;;
         esac
     done
 }
@@ -184,64 +201,87 @@ mode_audio() {
     local files=("$@")
 
     if [[ -z "$action" || -f "$action" ]]; then
-        if [[ -f "$action" ]]; then files=("$action" "${files[@]}"); fi
-        action=$(zenity --list --title="Audio Tools" --height=350 --width=400 \
-            --column="Action" --column="Desc" \
-            "opus" "To Opus (Default High Quality)" \
-            "m4a" "To AAC/M4A (320k)" \
-            "mp3" "To MP3 (320k)" \
-            "flac" "To FLAC (Lossless)" \
-            "wav" "To WAV (PCM 16-bit)" \
-            "ogg" "To OGG (Vorbis)" \
-            "norm" "Normalize voice recording for transcription" \
-            "rip" "Rip Audio (Copy if possible)") || exit 0
+        [[ -f "$action" ]] && files=("$action" "${files[@]}")
         GUI_MODE="true"
+        action=$(zenity --list --title="Audio Tools" --height=700 --width=500 \
+            --column="Action" --column="Description" \
+            "opus" "Convert to Opus" \
+            "m4a" "Convert to AAC/M4A" \
+            "mp3" "Convert to MP3" \
+            "flac" "Convert to FLAC" \
+            "wav" "Convert to WAV (PCM)" \
+            "ogg" "Convert to OGG Vorbis" \
+            "rip" "Extract audio stream from video (copy)" \
+            "spec" "Create spectrogram image of audio" \
+            "sep1" "=== Remastering ===" \
+            "headphone" "Rich Headphone (Warmth + Width)" \
+            "clarity" "Clarity/Pop (Detail + Loudness)" \
+            "widen" "Simple Stereo Widening" \
+            "sep2" "=== Whisper Fixes ===" \
+            "whisper" "Optimize for Whisper/AI (Fix levels)" \
+            "whisper_noisy" "Fix Noisy/Mumbled (Denoise + EQ)" \
+            "whisper_quiet" "Boost Quiet Audio (Dynamic Norm)") || exit 0
+        [[ "$action" == "sep"* ]] && exit 0
     fi
 
     for f in "${files[@]}"; do
         [ ! -f "$f" ] && continue
-        local dir base ext out
-        dir=$(dirname "$f")
-        base=$(basename "${f%.*}")
-        
+        local out af_chain="" bitrate val
+
         case "$action" in
             opus)
-                out=$(next_filename "${dir}/${base}.opus")
-                run_progress "Encoding Opus..." ffmpeg -y -i "$f" -c:a libopus -b:a "$AUDIO_BITRATE_OPUS" -vn "$out"
-                ;;
-            m4a|aac)
-                out=$(next_filename "${dir}/${base}.m4a")
-                run_progress "Encoding AAC..." ffmpeg -y -i "$f" -c:a aac -b:a "$AUDIO_BITRATE_STD" -vn "$out"
-                ;;
-            mp3)
-                out=$(next_filename "${dir}/${base}.mp3")
-                run_progress "Encoding MP3..." ffmpeg -y -i "$f" -c:a libmp3lame -b:a "$AUDIO_BITRATE_STD" -vn "$out"
-                ;;
+                out=$(generate_output_name "$f" "opus")
+                run_progress "Opus..." ffmpeg $FF_QUIET -y -i "$f" -c:a libopus -b:a "$AUDIO_BITRATE_OPUS" -vn "$out" ;;
             flac)
-                out=$(next_filename "${dir}/${base}.flac")
-                run_progress "Encoding FLAC..." ffmpeg -y -i "$f" -c:a flac -vn "$out"
-                ;;
-            wav|wave|pcm)
-                out=$(next_filename "${dir}/${base}.wav")
-                run_progress "Encoding WAV..." ffmpeg -y -i "$f" -c:a pcm_s16le -vn "$out"
-                ;;
+                out=$(generate_output_name "$f" "flac")
+                run_progress "To FLAC..." ffmpeg $FF_QUIET -y -i "$f" -c:a flac -vn "$out" ;;
+            m4a|aac)
+                out=$(generate_output_name "$f" "m4a")
+                run_progress "AAC..." ffmpeg $FF_QUIET -y -i "$f" -c:a aac -b:a "$AUDIO_BITRATE_STD" -vn "$out" ;;
+            mp3)
+                out=$(generate_output_name "$f" "mp3")
+                run_progress "MP3..." ffmpeg $FF_QUIET -y -i "$f" -c:a libmp3lame -b:a "$AUDIO_BITRATE_STD" -vn "$out" ;;
+            wav|pcm)
+                out=$(generate_output_name "$f" "wav")
+                run_progress "WAV..." ffmpeg $FF_QUIET -y -i "$f" -c:a pcm_s16le -vn "$out" ;;
             ogg)
-                out=$(next_filename "${dir}/${base}.ogg")
-                run_progress "Encoding OGG..." ffmpeg -y -i "$f" -c:a libvorbis -q:a 6 -vn "$out"
-                ;;
-            voice|norm|normal)
-                out=$(next_filename "${dir}/${base}_normal.wav")
-                run_progress "Optimizing for transcription..." ffmpeg -y -i "$f" -af "highpass=f=100, dynaudnorm=f=150:g=31:p=0.9, volume=1.5" -ar 16000 -ac 1 -vn "$out"
-                ;;
+                out=$(generate_output_name "$f" "ogg")
+                run_progress "To OGG..." ffmpeg $FF_QUIET -y -i "$f" -c:a libvorbis -q:a 6 -vn "$out" ;;
             rip)
-                # Try copy first
-                out=$(next_filename "${dir}/${base}.mka")
-                if ! ffmpeg -y -i "$f" -c:a copy -vn "$out" >/dev/null 2>&1; then
-                    # Fallback if copy fails
-                    out=$(next_filename "${dir}/${base}.opus")
-                    run_progress "Rip failed, transcoding..." ffmpeg -y -i "$f" -c:a libopus -b:a 192k -vn "$out"
-                fi
-                ;;
+                out=$(generate_output_name "$f" "mka" "rip")
+                if ! ffmpeg $FF_QUIET -y -i "$f" -c:a copy -vn "$out" >/dev/null 2>&1; then
+                     out=$(generate_output_name "$f" "opus" "rip_trans")
+                     run_progress "Copy failed, transcoding..." ffmpeg $FF_QUIET -y -i "$f" -c:a libopus -b:a 192k -vn "$out"
+                fi ;;
+            spectrogram|spec)
+                out=$(generate_output_name "$f" "png" "spectrogram")
+                run_progress "Generating Spectrogram..." ffmpeg $FF_QUIET -y -i "$f" -lavfi showspectrumpic=s=1024x512:legend=disabled "$out" ;;
+            
+            # --- Filters ---
+            norm|normal|whisper|whisper_std)
+                out=$(generate_output_name "$f" "wav" "whisper")
+                run_progress "Optimize for Whisper transcribe..." ffmpeg $FF_QUIET -y -i "$f" -af "speechnorm=e=12.5:r=0.00001:l=1" -ar 16000 -ac 1 -c:a pcm_s16le "$out" ;;
+            whisper_noisy)
+                out=$(generate_output_name "$f" "wav" "w_fix")
+                af_chain="highpass=f=80,lowpass=f=7500,afftdn=nf=-25,equalizer=f=1200:t=q:w=1.2:g=4,equalizer=f=2500:t=q:w=1.0:g=3,acompressor=threshold=-18dB:ratio=3:attack=5:release=80:makeup=6,loudnorm=I=-14:LRA=7:TP=-1"
+                run_progress "Whisper Noisy Fix..." ffmpeg $FF_QUIET -y -i "$f" -af "$af_chain" -ar 16000 -ac 1 -c:a pcm_s16le "$out" ;;
+            whisper_quiet)
+                out=$(generate_output_name "$f" "wav" "w_boost")
+                af_chain="highpass=f=100,dynaudnorm=f=150:g=31:p=0.9,volume=1.5"
+                run_progress "Whisper Quiet Boost..." ffmpeg $FF_QUIET -y -i "$f" -af "$af_chain" -ar 16000 -ac 1 -c:a pcm_s16le "$out" ;;
+            headphone)
+                val=$(get_val "Headphone Width" "Amount (1.0=Normal, 1.5=Wide)" 1.3 1.0 2.0) || continue
+                af_chain="stereotools=mlev=1:slev=${val},bass=g=3:f=110:w=0.6,crystalizer=i=2,alimiter=limit=0.95"
+                out=$(generate_output_name "$f" "opus" "headphone")
+                run_progress "Headphone Remaster..." ffmpeg $FF_QUIET -y -i "$f" -af "$af_chain" -c:a libopus -b:a "$AUDIO_BITRATE_OPUS" -vn "$out" ;;
+            clarity)
+                af_chain="highpass=f=60,firequalizer=gain_entry='entry(1000,0);entry(4000,2);entry(8000,4)',dynaudnorm=f=150:g=31:p=0.9,alimiter=limit=0.95"
+                out=$(generate_output_name "$f" "opus" "clarity")
+                run_progress "Clarity Remaster..." ffmpeg $FF_QUIET -y -i "$f" -af "$af_chain" -c:a libopus -b:a "$AUDIO_BITRATE_OPUS" -vn "$out" ;;
+            widen)
+                val=$(get_val "Stereo Widen" "Level (Def 0.4)" 0.4 0.1 1.0) || continue
+                out=$(generate_output_name "$f" "opus" "wide")
+                run_progress "Widening..." ffmpeg $FF_QUIET -y -i "$f" -af "stereowiden=level=${val}" -c:a libopus -b:a 192k -vn "$out" ;;
         esac
     done
 }
@@ -249,134 +289,161 @@ mode_audio() {
 # --- 3. VIDEO MODULE ---
 mode_video() {
     local action="${1:-}"
+    local cli_param="${2:-}"
     shift
+    if [[ "$cli_param" =~ ^[0-9]+$ ]]; then shift; else cli_param=""; fi
     local files=("$@")
 
     if [[ -z "$action" || -f "$action" ]]; then
-        if [[ -f "$action" ]]; then files=("$action" "${files[@]}"); fi
-        action=$(zenity --list --title="Video Tools" --height=420 --width=400 \
-            --column="Action" --column="Desc" \
-            "vp8" "To WebM (VP8 - Compatible)" \
-            "vp9" "To WebM (VP9 - Efficient)" \
-            "av1" "To WebM (AV1 - Best/Slow)" \
-            "h264" "To MP4 (H.264 - Common)" \
-            "h265" "To MP4 (H.265 - Modern)" \
-            "mov" "To MOV (ProRes/H264)" \
-            "vid2webp" "To Animated WebP (High Quality)" \
-            "lossless" "To Lossless (VP9)" \
-            "rip" "Rip Audio Only") || exit 0
+        [[ -f "$action" ]] && files=("$action" "${files[@]}")
         GUI_MODE="true"
+        # Ordered by Container Family -> Newest First
+        action=$(zenity --list --title="Video Tools" --height=650 --width=550 \
+            --column="Action" --column="Description" \
+            "av1" "WebM: AV1 (Best Efficiency)" \
+            "vp9" "WebM: VP9 (Standard)" \
+            "vp8" "WebM: VP8 (Legacy)" \
+            "mp4_av1"  "MP4: AV1 (Modern)" \
+            "vvc"  "MP4: H.266/VVC (Experimental)" \
+            "h265" "MP4: H.265/HEVC" \
+            "h264" "MP4: H.264/AVC (Universal)" \
+            "mov" "MOV: ProRes (Editing)" \
+            "webp" "Convert video to Animated WebP" \
+            "rip" "Extract Audio Only") || exit 0
     fi
 
-    # GPU Flag check
-    local h264_codec="libx264"
-    local h265_codec="libx265"
-    
-    if [[ "$USE_GPU" == "yes" ]]; then
-        # Rudimentary Nvidia check
-        if command -v nvidia-smi >/dev/null; then
-             h264_codec="h264_nvenc"
-             h265_codec="hevc_nvenc"
-        fi
+    # GPU Check
+    local h264_v="libx264" h265_v="libx265"
+    if [[ "$USE_GPU" == "yes" ]] && command -v nvidia-smi >/dev/null; then
+         h264_v="h264_nvenc"; h265_v="hevc_nvenc"
     fi
+    local vf_scale="scale=trunc(iw/2)*2:trunc(ih/2)*2"
 
     for f in "${files[@]}"; do
         [ ! -f "$f" ] && continue
-        local dir base out
-        dir=$(dirname "$f")
-        base=$(basename "${f%.*}")
+        local out crf
 
         case "$action" in
-            vp8|webm)
-                out=$(next_filename "${dir}/${base}.webm")
-                # Defaulting to VP8 for 'webm' generic request as user requested
-                run_progress "VP8 Encoding..." ffmpeg -y -i "$f" -c:v libvpx -crf 10 -b:v 1M -c:a libvorbis "$out"
-                ;;
-            vp9)
-                out=$(next_filename "${dir}/${base}.webm")
-                run_progress "VP9 Encoding..." ffmpeg -y -i "$f" -c:v libvpx-vp9 -crf "$VIDEO_CRF_DEFAULT" -b:v 0 -c:a libopus "$out"
-                ;;
-            av1)
-                out=$(next_filename "${dir}/${base}.webm")
-                run_progress "AV1 Encoding..." ffmpeg -y -i "$f" -c:v libaom-av1 -crf 30 -b:v 0 -cpu-used 4 -c:a libopus "$out"
-                ;;
-            h264)
-                out=$(next_filename "${dir}/${base}.mp4")
-                run_progress "H264 Encoding..." ffmpeg -y -i "$f" -c:v "$h264_codec" -crf 23 -c:a copy "$out"
-                ;;
-            h265)
-                out=$(next_filename "${dir}/${base}.mp4")
-                run_progress "H265 Encoding..." ffmpeg -y -i "$f" -c:v "$h265_codec" -crf 28 -c:a copy "$out"
-                ;;
-            mov)
-                out=$(next_filename "${dir}/${base}.mov")
-                # Defaulting MOV to a high quality h264 for compatibility
-                run_progress "MOV Encoding..." ffmpeg -y -i "$f" -c:v "$h264_codec" -q:v 0 -c:a copy "$out"
-                ;;
-            vid2webp)
-                # Video to Animated WebP using flags from the HTML reference
-                out=$(next_filename "${dir}/${base}.webp")
-                # Note: -vsync 0 deprecated for -fps_mode passthrough
-                run_progress "Animated WebP..." ffmpeg -y -i "$f" -vcodec libwebp -filter:v fps=20 -lossless 0 -compression_level 4 -q:v 75 -loop 0 -preset default -an -fps_mode passthrough -s 800:-1 "$out"
-                ;;
-            lossless)
-                out=$(next_filename "${dir}/${base}_lossless.webm")
-                run_progress "Lossless..." ffmpeg -y -i "$f" -c:v libvpx-vp9 -lossless 1 -c:a copy "$out"
-                ;;
+            # --- WebM Family ---
+            webm_av1|av1)
+                crf=$(get_val "AV1 Quality" "CRF (Def 28)" 28 0 63 "$cli_param") || continue
+                out=$(generate_output_name "$f" "webm" "av1")
+                run_progress "AV1 (WebM)..." ffmpeg $FF_QUIET -y -i "$f" -c:v libaom-av1 -crf "$crf" -b:v 0 -cpu-used "$VIDEO_PRESET_SPEED" -row-mt 1 -vf "$vf_scale" -c:a libopus -b:a "$VIDEO_AUDIO_BITRATE_OPUS" "$out" ;;
+            webm_vp9|vp9|webm)
+                crf=$(get_val "VP9 Quality" "CRF (Def 30)" 30 0 63 "$cli_param") || continue
+                out=$(generate_output_name "$f" "webm" "vp9")
+                run_progress "VP9 (WebM)..." ffmpeg $FF_QUIET -y -i "$f" -c:v libvpx-vp9 -crf "$crf" -b:v 0 -row-mt 1 -vf "$vf_scale" -c:a libopus -b:a "$VIDEO_AUDIO_BITRATE_OPUS" "$out" ;;
+            webm_vp8|vp8)
+                crf=$(get_val "VP8 Quality" "CRF (Def 12)" 12 4 63 "$cli_param") || continue
+                out=$(generate_output_name "$f" "webm" "vp8")
+                run_progress "VP8 (WebM)..." ffmpeg $FF_QUIET -y -i "$f" -c:v libvpx -crf "$crf" -b:v 1M -vf "$vf_scale" -c:a libvorbis -q:a 5 "$out" ;;
+            
+            # --- MP4 Family ---
+            mp4_av1)
+                crf=$(get_val "AV1(MP4) Quality" "CRF (Def 28)" 28 0 63 "$cli_param") || continue
+                out=$(generate_output_name "$f" "mp4" "av1")
+                run_progress "AV1 (MP4)..." ffmpeg $FF_QUIET -y -i "$f" -c:v libaom-av1 -crf "$crf" -b:v 0 -cpu-used "$VIDEO_PRESET_SPEED" -row-mt 1 -vf "$vf_scale" -c:a libopus -b:a "$VIDEO_AUDIO_BITRATE_OPUS" -strict experimental "$out" ;;
+            mp4_vvc|vvc|h266)
+                out=$(generate_output_name "$f" "mp4" "vvc")
+                if ffmpeg -codecs | grep -q "libvvenc"; then
+                     run_progress "H.266 (VVC)..." ffmpeg $FF_QUIET -y -i "$f" -c:v libvvenc -qp 32 -vf "$vf_scale" -c:a aac "$out"
+                else
+                     zenity --error --text="H.266 (VVC) not found."
+                fi ;;
+            mp4_h265|hevc|h265)
+                crf=$(get_val "H.265 Quality" "CRF (Def 26)" 26 0 51 "$cli_param") || continue
+                out=$(generate_output_name "$f" "mp4" "hevc")
+                run_progress "H.265..." ffmpeg $FF_QUIET -y -i "$f" -c:v "$h265_v" -preset medium -crf "$crf" -vf "$vf_scale" -pix_fmt yuv420p -movflags +faststart -c:a aac -b:a "$VIDEO_AUDIO_BITRATE" "$out" ;;
+            mp4_h264|avc|h264|mp4)
+                crf=$(get_val "H.264 Quality" "CRF (Def 22)" 22 0 51 "$cli_param") || continue
+                out=$(generate_output_name "$f" "mp4" "h264")
+                run_progress "H.264..." ffmpeg $FF_QUIET -y -i "$f" -c:v "$h264_v" -preset slow -tune film -crf "$crf" -vf "$vf_scale" -pix_fmt yuv420p -movflags +faststart -c:a aac -b:a "$VIDEO_AUDIO_BITRATE" "$out" ;;
+
+            # --- Other ---
+            mov_prores|mov)
+                out=$(generate_output_name "$f" "mov" "prores")
+                run_progress "ProRes..." ffmpeg $FF_QUIET -y -i "$f" -c:v prores_ks -profile:v 2 -vf "$vf_scale" -c:a pcm_s16le "$out" ;;
+            vid2webp|webp)
+                out=$(generate_output_name "$f" "webp" "anim")
+                run_progress "Video->WebP..." ffmpeg $FF_QUIET -y -i "$f" -vcodec libwebp -filter:v fps=20 -lossless 0 -q:v 75 -loop 0 -an -s 800:-1 "$out" ;;
             rip)
-                out=$(next_filename "${dir}/${base}.mka")
-                ffmpeg -y -i "$f" -c:a copy -vn "$out"
-                ;;
+                mode_audio "rip" "$f" ;;
         esac
     done
 }
 
-# --- Help / Dispatcher ---
-
+# --- 4. CLI HELP ---
 show_help() {
+    cat <<'EOF'
+  __  __          _ _       ____                     
+ |  \/  | ___  __| (_) __ _/ ___|_      ____ _ _ __  
+ | |\/| |/ _ \/ _` | |/ _` \___ \ \ /\ / / _` | '_ \ 
+ | |  | |  __/ (_| | | (_| |___) \ V  V / (_| | |_) |
+ |_|  |_|\___|\__,_|_|\__,_|____/ \_/\_/ \__,_| .__/ 
+                                              |_|    
+EOF
     cat <<EOF
-mediaswap v$VERSION
+${C_DIM} mediaswap v${VERSION} — The Unified Media Tool${C_RESET}
 
-Usage: m [i|a|v] [action] [files...]
+${C_BOLD}${C_BLUE}Usage:${C_RESET} m [i|a|v] [action] [files...]
 
-IMAGES (i):
-  m i webp         Convert to WebP
-  m i avif         Convert to AVIF
-  m i png          Convert to PNG
-  m i jpg|jpeg     Convert to JPG
-  m i animwebp     Create animated WebP from multiple input images
-  m i bevel        Add transparent 3D bevel
-  m i rappleshot   Add screenshot shadow
-  m i bgremove     Remove background
-  m i iconset      Generate standard icon sizes folder
-  m i ascii        Convert to ASCII text file
+${C_BOLD}${C_GREEN}IMAGES (i):${C_RESET}
+  ${C_CYAN}m i webp${C_RESET}           Convert to WebP
+  ${C_CYAN}m i avif${C_RESET}           Convert to AVIF
+  ${C_CYAN}m i png${C_RESET}            Convert to PNG
+  ${C_CYAN}m i jpg|jpeg${C_RESET}       Convert to JPG
 
-AUDIO (a):
-  m a opus         Convert to Opus
-  m a m4a|aac      Convert to AAC/M4A
-  m a mp3          Convert to MP3
-  m a flac         Convert to FLAC
-  m a wav|pcm      Convert to WAV
-  m a ogg          Convert to OGG Vorbis
-  m a rip          Extract audio stream from video (copy)
+  ${C_CYAN}m i resize${C_RESET}         Resize Image (Slider %)
+  ${C_CYAN}m i animate${C_RESET}        Create Animated WebP from multiple inputs
+  ${C_CYAN}m i edge${C_RESET}           Add Transparent 3D Edge (Bevel)
+  ${C_CYAN}m i shadow${C_RESET}         Add Screenshot Shadow (Rappleshot)
+  ${C_CYAN}m i smooth${C_RESET}         Gaussian Smooth/Blur
+  ${C_CYAN}m i bgremove${C_RESET}       Remove Background
+  ${C_CYAN}m i icons${C_RESET}          Generate Favicon Icons
+  ${C_CYAN}m i ascii${C_RESET}          Convert to ASCII
+  ${C_CYAN}m i strip${C_RESET}          Scrub Metadata
 
-VIDEO (v):
-  m v vp8|webm     Convert to WebM (VP8)
-  m v vp9          Convert to WebM (VP9)
-  m v av1          Convert to WebM (AV1)
-  m v h264         Convert to MP4 (H.264)
-  m v h265         Convert to MP4 (H.265)
-  m v mov          Convert to MOV
-  m v vid2webp     Convert video to Animated WebP (GIF style)
-  m v lossless     Convert to lossless WebM
+${C_BOLD}${C_GREEN}AUDIO (a):${C_RESET}
+  ${C_CYAN}m a opus${C_RESET}           Convert to Opus
+  ${C_CYAN}m a m4a|aac${C_RESET}        Convert to AAC/M4A
+  ${C_CYAN}m a mp3${C_RESET}            Convert to MP3
+  ${C_CYAN}m a flac${C_RESET}           Convert to FLAC
+  ${C_CYAN}m a wav|pcm${C_RESET}        Convert to WAV (PCM)
+  ${C_CYAN}m a ogg${C_RESET}            Convert to OGG Vorbis
 
-Global Flags:
-  --gpu            Enable GPU encoding (NVENC) where supported
-  --force          Allow overwriting files (Not implemented yet, currently appends _1)
+  ${C_CYAN}m a rip${C_RESET}            Extract Audio Stream from Video (copy)
+  ${C_CYAN}m a spec${C_RESET}           Generate Spectrogram Image of Audio
+
+  ${C_DIM}--- Remastering ---${C_RESET}
+  ${C_CYAN}m a headphone${C_RESET}      Rich Headphone (Warmth + Width)
+  ${C_CYAN}m a clarity${C_RESET}        Enhance Detail ("Notmos")
+  ${C_CYAN}m a widen${C_RESET}          Simple Stereo Widening
+
+  ${C_DIM}--- Whisper AI / Transcription Prep ---${C_RESET}
+  ${C_CYAN}m a whisper${C_RESET}        Whisper Transcription Optimize (Norm + 16k)
+  ${C_CYAN}m a whisper_noisy${C_RESET}  Whisper for Noisy/Mumbled (Denoise + EQ)
+  ${C_CYAN}m a whisper_quiet${C_RESET}  Whisper Boost Quiet Audio (Dynamic Norm)
+
+${C_BOLD}${C_GREEN}VIDEO (v):${C_RESET}
+  ${C_CYAN}m v webm_av1|av1${C_RESET}   Convert to WebM (AV1)
+  ${C_CYAN}m v webm_vp9|webm${C_RESET}  Convert to WebM (VP9)
+  ${C_CYAN}m v webm_vp8|vp8${C_RESET}   Convert to WebM (VP8)
+  ${C_CYAN}m v mp4_av1${C_RESET}        Convert to MP4 (AV1)
+  ${C_CYAN}m v mp4_vvc|vvc${C_RESET}    Convert to MP4 (H.266/VVC)
+  ${C_CYAN}m v mp4_h265|hevc${C_RESET}  Convert to MP4 (H.265/HEVC)
+  ${C_CYAN}m v mp4_h264|mp4${C_RESET}   Convert to MP4 (H.264/AVC)
+  ${C_CYAN}m v mov${C_RESET}            Convert to (MOV/ProRes)
+
+  ${C_CYAN}m v webp${C_RESET}           Convert video to Animated WebP (GIF style)
+  ${C_CYAN}m v rip${C_RESET}            Extract Audio Stream Only
+
+${C_DIM}Global Flags:${C_RESET}
+  --gpu             Enable GPU encoding (NVENC) where supported
+  --force           Allow overwriting files (Not implemented yet, currently appends _1)
 EOF
 }
 
-# Handle global flags manually
+# --- Dispatcher ---
 ARGS=()
 for arg in "$@"; do
     case "$arg" in
@@ -391,15 +458,9 @@ MODE="${1:-}"
 shift || true
 
 case "$MODE" in
-    i|img|image)
-        mode_image "$@"
-        ;;
-    a|aud|audio)
-        mode_audio "$@"
-        ;;
-    v|vid|video)
-        mode_video "$@"
-        ;;
+    i|img|image) mode_image "$@" ;;
+    a|aud|audio) mode_audio "$@" ;;
+    v|vid|video) mode_video "$@" ;;
     *)
         if [ -n "$MODE" ] && [ -f "$MODE" ]; then
             zenity --error --text="Please specify mode: image (i), audio (a), or video (v)."
