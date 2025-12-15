@@ -1,11 +1,10 @@
-# Mediaswap
 
 **Quickly convert audio, image, and video files via right-click menus or use the CLI.**
 
 ### Desktop non-app
-Mediaswap is a robust wrapper designed to bring the power of **FFmpeg** and **ImageMagick** to your Ubuntu/GNOME desktop. The GUI is familiar because it's your shell and file manager. 
+Mediaswap is a robust wrapper designed to bring the power of **FFmpeg** and **ImageMagick** to your Ubuntu/GNOME desktop. The GUI is familiar because it's yours: the shell and file manager you are already using. If you can copy, cut, paste with your mouse, you already know how to use MediaSwap to bulk transform your media files.  
 
-Essentially a **Zenity** powered non-app that attaches itself to your shell, integrating seamlessly into your environment, and organically into your workflow. Natural and intuitive your great grandfather could figure out remastering his Glenn Miller Orchestra records in like 3 minutes. This pop up powered shell extension wrapper set passes commands to the CLI app. That's right you have the same powers in terminal mode and can absolutely use Mediaswap on your remote server with no desktop, or the Termux console of your Android phone. 
+Essentially a **Zenity** powered non-app, there's new big programs to load or learn. MediaSwap attaches to your shell, integrating seamlessly into your environment, and organically into your workflow. So natural and intuitive your great grandfather could figure out remastering his Glenn Miller Orchestra records in 3 minutes. The shell extension is composed of wrapper scripts in your GTK system. You interact via normal menus plus some new dialogues and slider elements that extend functionality with a native feel. Then these components pass commands back to a master CLI app. That's right, MediaSwap also has a terminal interface. And yes you can absolutely use on your remote server with no desktop. And even the Termux console of your Android phone. 
 
 shut up ray! 🤬 
 
@@ -17,6 +16,7 @@ no joke i do it all the time 😀
   * **Video:** Convert proprietary formats to **VP9**, **AV1**, or **VP8**. Includes smart defaults for modern web standards.
   * **Audio:** **Rip audio** tracks from video files (bit-perfect copy) or transcode to **Opus**, **FLAC**, **AAC**, or **WAV**.
   * **Workflow:** Right click, batch process multiple files instantly, or use the CLI terminal version. Convert a directory of h264 MP4 video files to royalty free AV1 video in WebM containers? Easy as `m v av1 *mp4`.
+    
 -----
 
 ### Usage
