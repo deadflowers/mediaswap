@@ -5,8 +5,13 @@
 ### Desktop non-app
 Mediaswap is a robust wrapper designed to bring the power of **FFmpeg** and **ImageMagick** to your Ubuntu/GNOME desktop. The GUI is familiar because it's your shell and file manager. 
 
-Essentially a **Zenity** powered non-app that attaches itself to your shell, integrating seamlessly into your environment, and organically into your workflow. 
+Essentially a **Zenity** powered non-app that attaches itself to your shell, integrating seamlessly into your environment, and organically into your workflow. Natural and intuitive your great grandfather could figure out remastering his Glenn Miller Orchestra records in like 3 minutes. 
 
+The GUI pop up powered shell extension wrappers pass commands to the MediaSwap CLI app. That's right you have the same powers in terminal mode and can absolutely use Mediaswap on your remote server with no desktop, or the Termux console on your Android phone. 
+
+shut up ray! 🤬 
+
+no joke i do it all the time 😀 
 ---
 
   * **Images:** Convert `.heic` and `.raw` to `.png`, `.webp`, `.avif`, or `.jpg`. Create **icons** for your web app or site, apply **bevels**, add **drop-shadows**, **remove backgrounds**, or generate **ASCII** art.
