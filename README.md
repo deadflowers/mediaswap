@@ -6,9 +6,9 @@
 
 ---
 
-* **Images:** Convert `.heic` and `.raw` to `.png`, `.webp`, `.avif`, or `.jpg`. Create **icons** for your web app, apply **bevels**, **drop-shadows**, **remove backgrounds**, animate and more.
+* **Images:** Convert `.heic` and `.raw` to `.png`, `.webp`, `.avif`, or `.jpg`. Create **icons** for your web app, apply **bevels**, **drop-shadows**, **remove backgrounds**, animate, resize, and more.
 * **Video:** Convert proprietary formats to **VP9**, **AV1**, **VP8**. Smart defaults for current best practice.
-* **Audio:** Convert **WAV** to **FLAC**, or **AAC**, **Opus**, **MP3**. Remix, remaster, rip bit perfect audio from video files create spectrogram charts, normalize voice notes for Whisper AI.
+* **Audio:** Convert to and from **WAV**, **FLAC**, **AAC**, **Opus**, **OGG**, **MP3**. Remix, remaster, rip bit perfect audio from video files create spectrogram charts, normalize voice notes for Whisper AI, amd more.
 * **Workflow:** Right click on or more files in your file manager, choose what you want ot do. Or use the CLI. Convert a directory of MP4 video files to royalty free AV1 WebM? Easy as `m v av1 *mp4`.
 
 ---
@@ -103,7 +103,8 @@ Handles conversion, effects, and web optimization.
 * **webp**: Convert to WebP (default quality 75).
 * **avif**: Convert to AVIF (high efficiency).
 * **png / jpg**: Standard conversions.
-* *\*animate*: Combine multiple selected images into an animated WebP.
+* **resize**: resize image by percent or WxH.
+* **anim**: Combine multiple selected images into an animated WebP.
 * **bevel**: Add a transparent 3D raised border.
 * **shadow**: Add a floating “glass” shadow effect (great for screenshots).
 * **bg**: Remove background (white/black detection with threshold slider).
@@ -115,13 +116,19 @@ Handles conversion, effects, and web optimization.
 
 Convert audio with smarter transcoding and ripping.
 
-* **opus**: Convert to Opus (Default: 256k).
-* **ogg**: Convert to Ogg (Default: 256k).
-* **m4a**: Convert to AAC/M4A (Default: 320k).
-* **mp3**: Convert to MP3 (Default: 320k).
 * **flac**: Lossless conversion.
 * **wav**: Convert to PCM WAV (16-bit).
-* **norm**: Normalize a voice recording for transcription (optimize for Whisper).
+* **opus**: Convert to Opus (Default: 256k).
+* **m4a**: Convert to AAC/M4A (Default: 320k).
+* **ogg**: Convert to Ogg (Default: 256k).
+* **mp3**: Convert to MP3 (Default: 320k).
+* **spec**: Create spectrogram image of audio
+* **norm**,**whisper**: Normalize a voice recording for transcription (optimize for Whisper).
+* **whisper_quiet**: Boost Quiet Audio (Dynamic Norm) for transcription (optimize for Whisper).
+* **whisper_noisy**: Fix Noisy/Mumbled (Denoise + EQ) for transcription (optimize for Whisper).
+* **mix_headphone**: Rich Headphone (Warmth + Width).
+* **mix_clear**: Enhance detail/pop ("Notmos")
+* **mix_wide**: Simple Stereo Widening.
 * **rip**: Extract audio stream from video **without re-encoding** (copy stream). If the container format doesn’t match, it prompts to transcode.
 
 #### 🎥 Video (`m v`)[](#-video-m-v)
@@ -135,14 +142,16 @@ Focuses on modern web standards and editing formats. Convert and transcode with 
 
 Focuses on modern web standards and editing formats. Convert and transcode with ease.
 
-* **rip**: extract audio track without transcode, attepts bit for bit copy.
-* **vp9**, **webm**: Convert to WebM VP9 (Best balance of size/quality, default foor webm mode).
-* **vp8**: Convert to WebM VP8.
 * **av1**: Convert to WebM AV1 (High efficiency, slower encode).
-* **h264**: Convert to MP4 H.264 (Universal compatibility).
-* **h265**: Convert to MP4 HEVC.
-* **mov**: Convert to MOV (ProRes or high-bitrate H.264).
+* **vp9**, **webm**: Convert to WebM VP9 (Best balance of size/quality, default).
+* **vp8**: Convert to WebM VP8.
+* **mp4_av1**: Convert to MP4 AV1.
+* **h266|vvc**: Convert to MP4 H.266 (Latest, experimental).
+* **h265**,**hevc**,**mp4**: Convert to MP4 HEVC (default)
+* **h264|avc**: Convert to MP4 H.264 (Universal compatibility).
+* **mov**: Convert to MOV (ProRes for editing).
 * **webp**: Convert video clip to high-quality animated WebP.
+* **rip**: extract audio track without transcode, attepts bit for bit copy.
 
 ---
 
@@ -152,12 +161,12 @@ Not residing in memory and being only around 500 lines, it’s like it’s not e
 
 You can launch and interact with MediaSwap starting from the CLI, like a hybrid. Or you can never use the GUI or even know it exists as the console app has the same powers. And like mouse click based experience, MediaSwap on a terminal is fast, fun, intuitive. It had to be or you would just use FFMpeg directly!
 
-The objective is to give console users a simpler, faster way to call on the most common functions. The power of FFMpeg extended to all experience levels including novice user who should be able to rip bit perfect audio, migrate their videos to av1, while knowing almost nothing about ffmpeg. The commands should be
+The objective is to give console users a simpler, faster way to call on the most common functions. The power of FFMpeg extended to all experience levels including novice user who should be able to rip bit perfect audio, migrate their videos to av1, while knowing almost nothing about ffmpeg. With commands that are,
 
 * too simple to confuse
 * too sensible to forget
 * too short to typo
-* with a help guide you can figure out in under a minute
+* a simple help guide you can grasp in under a minute
 
 ### Use Cases[](#use-cases)
 
@@ -202,7 +211,7 @@ sudo apt install ffmpeg imagemagick zenity file chafa jp2a exiftool zip
    
    ```
    mkdir -p ~/.local/bin
-   mv mediaswap ~/.local/bin/
+   cp -a bin/mediaswap ~/.local/bin/
    chmod +x ~/.local/bin/mediaswap
    ln -s ~/.local/bin/mediaswap ~/.local/bin/m
    ```
@@ -228,9 +237,9 @@ sudo apt install ffmpeg imagemagick zenity file chafa jp2a exiftool zip
 
 | Type | Command | Available Actions & Formats | Notes |
 | :--- | :--- | :--- | :--- |
-| **Image** | `m i` | `webp`, `avif`, `png`, `jpg`, `animate`, `icons`, `bevel`, `rappleshot`, `bgremove`, `ascii`, `strip` | `animate` creates an animated WebP from multiple selected images. `strip` removes metadata. |
-| **Audio** | `m a` | `opus`, `m4a`, `mp3`, `flac`, `wav`, `ogg`, `norm`, `rip` | `rip` extracts the audio stream from a video file without re-encoding. `norm` optimize a recording for transcription |
-| **Video** | `m v` | `vp9`, `vp8`, `av1`, `h264`, `h265`, `webm`, `mov`, `mp4`, `webp`, `rip` | `webp` converts video input to an animated WebP. `rip` is a shortcut to extract audio. Supports `--gpu`. |
+| **Image** | `m i` | `webp`, `avif`, `png`, `jpg`, `anim`, `icons`, `edge`, `shadow`, `bg`, `resize`, `ascii`, `strip` | `anim` creates an animated WebP from multiple selected images. `strip` removes metadata. |
+| **Audio** | `m a` | `opus`, `m4a`, `mp3`, `flac`, `wav`, `ogg`, `norm`, `rip`, `spec` | `rip` extracts the audio stream from a video file without re-encoding. `norm` optimize a recording for transcription |
+| **Video** | `m v` | `vp9`, `vp8`, `av1`, `h264`, `h265`, `h266`, `avc`, `hevc`, `vvc`, `webm`, `mov`, `mp4`, `webp`, `rip` | `webp` converts video input to an animated WebP. `rip` is a shortcut to extract audio. Supports `--gpu`. |
  
 ---
 
@@ -240,8 +249,8 @@ Running `m i icons logo.png` creates a folder structure ready for web deployment
 
 ```
 logo_iconset/
-├── 16.png
 ├── 32.png
+├── 48.png
 ...
 ├── favicon.ico
 ├── manifest.json
@@ -272,5 +281,5 @@ logo_iconset/
 
 ### Credits[](#credits)
 
-Mediaswap is an open-source utility created by **Ray Kooyenga**. 
+Mediaswap is an open-source experiment created by **Ray Kooyenga**. 
 <!-- **Ubuntu 25.04** with **GNOME 48** -->.
