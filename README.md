@@ -159,7 +159,7 @@ The objective is to give console users a simpler, faster way to call on the most
 * too short to typo
 * with a help guide you can figure out in under a minute
 
-### What it does[](#what-it-does)
+### Use Cases[](#use-cases)
 
 Right click a media file or batch of files and convert PNG to WebP, or batch of MP4 to WebM, optimize a batch of voice notes for upload to transcription like Whisper AI by downsampling and normalizing or de-noise filtering. Select all your WebM music videos and extract the audio streams to Matroska containers. Drag select those and apply sound effects like clarity, or stereo widening.
 
@@ -223,40 +223,15 @@ sudo apt install ffmpeg imagemagick zenity file chafa jp2a exiftool zip
 
 ---
 
-### Command Reference Table[](#command-reference-table)
 
-Type
+### Command Reference Table
 
-Command
-
-Available Actions & Formats
-
-Notes
-
-**Image**
-
-`m i`
-
-`webp`, `avif`, `png`, `jpg`, `animate`, `icons`, `bevel`, `rappleshot`, `bgremove`, `ascii`, `strip`
-
-`animate` creates an animated WebP from multiple selected images. `strip` removes metadata.
-
-**Audio**
-
-`m a`
-
-`opus`, `m4a`, `mp3`, `flac`, `wav`, `ogg`, `norm`, `rip`
-
-`rip` extracts the audio stream from a video file without re-encoding. `norm` optimize a recording for transcription
-
-**Video**
-
-`m v`
-
-`vp9`, `vp8`, `av1`, `h264`, `h265`, `webm`, `mov`, `mp4`, `webp`, `rip`
-
-`webp` converts video input to an animated WebP. `rip` is a shortcut to extract audio. Supports `--gpu`.
-
+| Type | Command | Available Actions & Formats | Notes |
+| :--- | :--- | :--- | :--- |
+| **Image** | `m i` | `webp`, `avif`, `png`, `jpg`, `animate`, `icons`, `bevel`, `rappleshot`, `bgremove`, `ascii`, `strip` | `animate` creates an animated WebP from multiple selected images. `strip` removes metadata. |
+| **Audio** | `m a` | `opus`, `m4a`, `mp3`, `flac`, `wav`, `ogg`, `norm`, `rip` | `rip` extracts the audio stream from a video file without re-encoding. `norm` optimize a recording for transcription |
+| **Video** | `m v` | `vp9`, `vp8`, `av1`, `h264`, `h265`, `webm`, `mov`, `mp4`, `webp`, `rip` | `webp` converts video input to an animated WebP. `rip` is a shortcut to extract audio. Supports `--gpu`. |
+ 
 ---
 
 #### Favicon / Web Icon Generation[](#favicon--web-icon-generation)
@@ -297,4 +272,5 @@ logo_iconset/
 
 ### Credits[](#credits)
 
-Mediaswap is an open-source utility created by **Ray Kooyenga**. It was developed on **Ubuntu 25.04** with **GNOME 48**.
+Mediaswap is an open-source utility created by **Ray Kooyenga**. 
+<!-- **Ubuntu 25.04** with **GNOME 48** -->.
