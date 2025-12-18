@@ -146,7 +146,7 @@ mode_image() {
         local out_name="animation.webp"
         [ "${#files[@]}" -gt 0 ] && out_name="$(dirname "${files[0]}")/animation.webp"
         out_name=$(generate_output_name "$out_name" "webp" "anim")
-        run_progress "Creating Animation..." convert -delay 20 -loop 0 "${files[@]}" -define webp:method=6 "$out_name"
+        run_progress "Creating Animation..." magick -delay 20 -loop 0 "${files[@]}" -define webp:method=6 "$out_name"
         return 0
     fi
 
@@ -158,54 +158,54 @@ mode_image() {
             webp)
                 q_val=$(get_val "WebP Quality" "Higher=Better (Def $IMG_QUALITY_DEFAULT)" "$IMG_QUALITY_DEFAULT" 1 100 5 "$cli_param") || continue
                 out=$(generate_output_name "$f" "webp")
-                run_progress "To WebP (Q$q_val)..." convert "$f" -quality "$q_val" -define webp:method=6 "$out" ;;
+                run_progress "To WebP (Q$q_val)..." magick "$f" -quality "$q_val" -define webp:method=6 "$out" ;;
             avif)
                 q_val=$(get_val "AVIF Quality" "Higher=Better (Def 70)" 70 1 100 5 "$cli_param") || continue
                 out=$(generate_output_name "$f" "avif")
-                run_progress "To AVIF (Q$q_val)..." convert "$f" -quality "$q_val" -define heic:speed=2 "$out" ;;
+                run_progress "To AVIF (Q$q_val)..." magick "$f" -quality "$q_val" -define heic:speed=2 "$out" ;;
             jpg|jpeg)
                 q_val=$(get_val "JPG Quality" "Higher=Better (Def 85)" 85 1 100 5 "$cli_param") || continue
                 out=$(generate_output_name "$f" "jpg")
-                run_progress "To JPG (Q$q_val)..." convert "$f" -quality "$q_val" -background white -flatten "$out" ;;
+                run_progress "To JPG (Q$q_val)..." magick "$f" -quality "$q_val" -background white -flatten "$out" ;;
             png)
                 out=$(generate_output_name "$f" "png")
-                run_progress "To PNG..." convert "$f" "$out" ;;
+                run_progress "To PNG..." magick "$f" "$out" ;;
             resize|size)
                 size_spec=$(get_val "Resize Image" "Percentage (50) or Geometry (800x600)" "50%" 1 200 1 "$cli_param") || continue
                 if [[ "$size_spec" =~ ^[0-9]+$ ]]; then size_spec="${size_spec}%"; fi
                 out=$(generate_output_name "$f" "$ext" "resize")
-                run_progress "Resizing ($size_spec)..." convert "$f" -resize "$size_spec" "$out" ;;
+                run_progress "Resizing ($size_spec)..." magick "$f" -resize "$size_spec" "$out" ;;
             smooth)
                 sigma_val=$(get_val "Gaussian Blur" "Sigma (Def 3)" 3 1 20 1 "$cli_param") || continue
                 out=$(generate_output_name "$f" "$ext" "smooth")
-                run_progress "Smoothing..." convert "$f" -gaussian-blur "0x${sigma_val}" "$out" ;;
+                run_progress "Smoothing..." magick "$f" -gaussian-blur "0x${sigma_val}" "$out" ;;
             bg)
                 fuzz_val=$(get_val "BG Remove" "Aggressiveness % (Def 15)" 15 1 50 1 "$cli_param") || continue
                 out=$(generate_output_name "$f" "png" "nobg")
-                run_progress "Removing BG..." convert "$f" -alpha on -fuzz "${fuzz_val}%" -transparent white "$out" ;;
+                run_progress "Removing BG..." magick "$f" -alpha on -fuzz "${fuzz_val}%" -transparent white "$out" ;;
             edge|bevel)
                 out=$(generate_output_name "$f" "png" "edge")
-                run_progress "Edging..." convert "$f" -alpha set -bordercolor none -border 16 -raise 16 "$out" ;;
+                run_progress "Edging..." magick "$f" -alpha set -bordercolor none -border 16 -raise 16 "$out" ;;
             shadow|rappleshot)
                 out=$(generate_output_name "$f" "png" "shadow")
-                run_progress "Shadowing..." convert "$f" \( +clone -background black -shadow 80x20+0+15 \) +swap -background transparent -layers merge +repage "$out" ;;
+                run_progress "Shadowing..." magick "$f" \( +clone -background black -shadow 80x20+0+15 \) +swap -background transparent -layers merge +repage "$out" ;;
             icons)
                 local idir="$(dirname "$f")/$(basename "${f%.*}")_iconset"
                 mkdir -p "$idir"
                 run_progress "Generating Iconset..." bash -c "
-                    convert \"$f\" -resize 32x32 \"$idir/32.png\"
-                    convert \"$f\" -resize 48x48 \"$idir/48.png\"
-                    convert \"$f\" -resize 144x144 \"$idir/144.png\"
-                    convert \"$f\" -resize 256x256 \"$idir/256.png\"
-                    convert \"$f\" -resize 512x512 \"$idir/512.png\"
-                    convert \"$idir/32.png\" \"$idir/48.png\" \"$idir/favicon.ico\"
+                    magick \"$f\" -resize 32x32 \"$idir/32.png\"
+                    magick \"$f\" -resize 48x48 \"$idir/48.png\"
+                    magick \"$f\" -resize 144x144 \"$idir/144.png\"
+                    magick \"$f\" -resize 256x256 \"$idir/256.png\"
+                    magick \"$f\" -resize 512x512 \"$idir/512.png\"
+                    magick \"$idir/32.png\" \"$idir/48.png\" \"$idir/favicon.ico\"
                 " ;;
             ascii)
                 out=$(generate_output_name "$f" "txt" "ascii")
                 if command -v chafa >/dev/null; then chafa "$f" > "$out"; else jp2a "$f" > "$out"; fi ;;
             strip)
                 out=$(generate_output_name "$f" "$ext" "clean")
-                if command -v exiftool >/dev/null; then cp "$f" "$out" && exiftool -overwrite_original -all= "$out"; else convert "$f" -strip "$out"; fi ;;
+                if command -v exiftool >/dev/null; then cp "$f" "$out" && exiftool -overwrite_original -all= "$out"; else magick "$f" -strip "$out"; fi ;;
         esac
     done
 }
