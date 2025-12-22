@@ -102,10 +102,11 @@ Handles conversion, effects, and web optimization.
 
 * **webp**: Convert to WebP (default quality 75).
 * **avif**: Convert to AVIF (high efficiency).
-* **png / jpg**: Standard conversions.
+* **png**: Convert to PNG.
+* **jpg**: Convert to JPG.
 * **resize**: resize image by percent or WxH.
 * **anim**: Combine multiple selected images into an animated WebP.
-* **bevel**: Add a transparent 3D raised border.
+* **edge**: Add a transparent 3D raised border.
 * **shadow**: Add a floating “glass” shadow effect (great for screenshots).
 * **bg**: Remove background (white/black detection with threshold slider).
 * **icons**: Generate a folder containing standard PWA/Favicon sizes + manifests.
@@ -133,22 +134,15 @@ Convert audio with smarter transcoding and ripping.
 
 #### 🎥 Video (`m v`)[](#-video-m-v)
 
-Focuses on modern web standards and editing formats. Convert and transcode with ease.
-
-* **rip**: extract audio track without transcode, attepts bit for bit copy.
-* **vp9**, **webm**: Convert to WebM VP9 (Best balance of size/quality, default foor webm mode).
-
-#### 🎥 Video (`m v`)[](#-video-m-v-1)
-
-Focuses on modern web standards and editing formats. Convert and transcode with ease.
+Convert and transcode for modern web standards with ease.  
 
 * **av1**: Convert to WebM AV1 (High efficiency, slower encode).
 * **vp9**, **webm**: Convert to WebM VP9 (Best balance of size/quality, default).
 * **vp8**: Convert to WebM VP8.
 * **mp4_av1**: Convert to MP4 AV1.
-* **h266|vvc**: Convert to MP4 H.266 (Latest, experimental).
-* **h265**,**hevc**,**mp4**: Convert to MP4 HEVC (default)
-* **h264|avc**: Convert to MP4 H.264 (Universal compatibility).
+* **h266**|**vvc**: Convert to H.266 in MP4 (Latest, experimental).
+* **h265**|**hevc**,**mp4**: Convert to H.265 in MP4 (MP4 default)
+* **h264**|**avc**: Convert to H.264 in MP4 (Universal compatibility).
 * **mov**: Convert to MOV (ProRes for editing).
 * **webp**: Convert video clip to high-quality animated WebP.
 * **rip**: extract audio track without transcode, attepts bit for bit copy.
