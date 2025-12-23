@@ -17,11 +17,15 @@ Essentially a **Zenity** powered non-app, there’s no big programs to load or l
 
 So natural and intuitive your great grandfather could figure out remastering his Glenn Miller Orchestra records in 3 minutes. The shell extension is composed of wrapper scripts in your GTK system you interact with via normal menus plus some new dialogues and slider elements that extend functionality with a native feel.
 
-These components pass commands back to a master CLI app. That’s right, MediaSwap has a smart terminal mode. And yes you can absolutely use on your remote server with no desktop. Or even the console on your Android phone.
+These components pass commands back to a master CLI app. That’s right, MediaSwap has a smart terminal mode. 
 
-shut up ray! 🤬
+And yes you can absolutely use on your remote server, with no desktop installed. 
 
-no joke i do it all the time 😂
+Even the console on your Android phone.
+
+Stop it Ray! 🤬
+
+No joke I do it all the time 😂
 
 ---
 
