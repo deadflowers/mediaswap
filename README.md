@@ -137,15 +137,15 @@ Convert audio with smarter transcoding and ripping.
 Convert and transcode for modern web standards with ease.  
 
 * **av1**: Convert to WebM AV1 (High efficiency, slower encode).
-* **vp9**, **webm**: Convert to WebM VP9 (Best balance of size/quality, default).
+* **vp9, webm**: Convert to WebM VP9 (Best balance of size/quality, default).
 * **vp8**: Convert to WebM VP8.
 * **mp4_av1**: Convert to MP4 AV1.
-* **h266**|**vvc**: Convert to H.266 in MP4 (Latest, experimental).
-* **h265**|**hevc**,**mp4**: Convert to H.265 in MP4 (MP4 default)
-* **h264**|**avc**: Convert to H.264 in MP4 (Universal compatibility).
+* **h266, vvc**: Convert to H.266 in MP4 (Latest, experimental).
+* **h265, hevc, mp4**: Convert to H.265 in MP4 (MP4 default)
+* **h264, avc**: Convert to H.264 in MP4 (Universal compatibility).
 * **mov**: Convert to MOV (ProRes for editing).
 * **webp**: Convert video clip to high-quality animated WebP.
-* **rip**: extract audio track without transcode, attepts bit for bit copy.
+* **rip**: extract audio track without transcode, attempts bit for bit copy.
 
 ---
 
