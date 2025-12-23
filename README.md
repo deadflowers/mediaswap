@@ -6,7 +6,7 @@
 
 ---
 
-* **Images:** Convert `.heic` and `.raw` to `.png`, `.webp`, `.avif`, or `.jpg`. Create **icons** for your web app, apply **bevels**, **drop-shadows**, **remove backgrounds**, animate, resize, and more.
+* **Images:** Convert **.heic** and **.raw** to **.png**, **.webp**, **.avif**, or **.jpg**. Create **icons** for your web app, apply **bevels**, **drop-shadows**, **remove backgrounds**, animate, resize, and more.
 * **Video:** Convert proprietary formats to **VP9**, **AV1**, **VP8**. Smart defaults for current best practice.
 * **Audio:** Convert to and from **WAV**, **FLAC**, **AAC**, **Opus**, **OGG**, **MP3**. Remix, remaster, rip bit perfect audio from video files create spectrogram charts, normalize voice notes for Whisper AI, amd more.
 * **Workflow:** Right click on or more files in your file manager, choose what you want ot do. Or use the CLI. Convert a directory of MP4 video files to royalty free AV1 WebM? Easy as `m v av1 *mp4`.
